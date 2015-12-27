@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var request = require('request');
 var cheerio = require('cheerio');
 var HangoutsBot = require('hangouts-bot');

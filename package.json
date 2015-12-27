@@ -16,6 +16,8 @@
   "author": "Jason Rogers <jason@jmichaelrogers.com>",
   "license": "ISC",
   "dependencies": {
-    "hangouts-bot": "^0.2.0"
+    "cheerio": "^0.19.0",
+    "hangouts-bot": "^0.2.0",
+    "request": "^2.67.0"
   }
 }

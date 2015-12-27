@@ -1,8 +1,9 @@
 #!/usr/bin/env node
+var path = require('path');
 var request = require('request');
 var cheerio = require('cheerio');
 var HangoutsBot = require('hangouts-bot');
-var credentials = require('./credentials.js');
+var credentials = require(path.join(__dirname, 'credentials.js'));
 
 // TODO: Use ES6 and make these real constants.
 var packtURL = 'https://www.packtpub.com/packt/offers/free-learning';

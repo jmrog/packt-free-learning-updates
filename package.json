@@ -1,0 +1,21 @@
+{
+  "name": "packt-free-learning-updates",
+  "version": "1.0.0",
+  "description": "Queries Packt Publishing's free learning offer for the day and sends a Google Hangouts message with the title.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "packt",
+    "learning",
+    "hangouts",
+    "messaging",
+    "automation"
+  ],
+  "author": "Jason Rogers <jason@jmichaelrogers.com>",
+  "license": "ISC",
+  "dependencies": {
+    "hangouts-bot": "^0.2.0"
+  }
+}

@@ -1,55 +1,54 @@
 #!/usr/bin/env node
-var path = require('path');
-var request = require('request');
-var cheerio = require('cheerio');
-var HangoutsBot = require('hangouts-bot');
-var credentials = require(path.join(__dirname, 'credentials.js'));
 
-// TODO: Use ES6 and make these real constants.
-var packtURL = 'https://www.packtpub.com/packt/offers/free-learning';
-var sourceEmail = credentials.sourceEmail;
-var sourcePassword = credentials.sourcePassword;
-var destinationEmail = credentials.destEmail;
-var hangoutsBot = new HangoutsBot(sourceEmail, sourcePassword);
+'use strict';
 
-// flags -- TODO: better organization and handling of this; this is hacky just for POC.
-hangoutsBot.isBotOnline = false;
-var title = null;
+const path = require('path');
+const argv = require('minimist')(process.argv.slice(2));
+const HangoutsBot = require('hangouts-bot');
 
-// FIXME: All of this is in one file for now just to get things working. Make modules.
-hangoutsBot.on('online', function() {
-	console.log('Hangouts bot is online!');
-	hangoutsBot.isBotOnline = true;
-	
-	if (title !== null) {
-		sendHangoutsMessage(title);
-	}
-});
+const HangoutsAPI = require(path.join(__dirname, 'lib', 'HangoutsAPI'));
+const decorateHangoutsBot = require(path.join(__dirname, 'lib', 'decorateHangoutsBot'));
+const credentials = require(path.join(__dirname, 'credentials.js'));
+const isDev = /^dev/.test(process.env.NODE_ENV);
+const shouldLog = typeof argv.log === 'boolean' ? argv.log : isDev;
 
-request(packtURL, function(err, res, html) {
-	if (!err) {
-		var $ = cheerio.load(html);
-		title = $('.dotd-title').text().trim();
-		console.log('Retrieved title: ' + title);
-		
-		if (hangoutsBot.isBotOnline) {
-			sendHangoutsMessage(title);
-		}
-	}
-});
+/**
+ * Starts the whole process! Expects that destination and source information
+ * will be defined on `credentials`.
+ *
+ * @param {boolean} shouldLog - forces logging
+ */
+function start(shouldLog) {
+    // No destructuring assignment in Node 4. :(
+    const sourceEmail = credentials.sourceEmail;
+    const sourcePassword = credentials.sourcePassword;
+    const destination = credentials.destinationEmail;
+    const hangoutsBot = decorateHangoutsBot(new HangoutsBot(sourceEmail, sourcePassword));
+    let title = null;
+    const apiData = {
+        hangoutsBot,
+        destination,
+        shouldLog
+    };
 
-function sendHangoutsMessage(title) {
-	var message;
+    hangoutsBot.on('online', () => HangoutsAPI.sendHangoutsMessage(
+        Object.assign({}, apiData, { title })
+    ));
 
-	if (!title) {
-		// I guess it's nice to know this.
-		message = "Received an empty title. An error must have occurred. :(";
-	}
-	else {
-		message = "Today's free Packt title is: " + title;
-	}
+    HangoutsAPI.makeRequest(shouldLog, (err, receivedTitle) => {
+        if (err) {
+            return HangoutsAPI.sendErrorNotification(Object.assign({}, apiData, { message: err }));
+        }
 
-	console.log('Sending this message to ' + destinationEmail + ': ' + message);
-	hangoutsBot.sendMessage(destinationEmail, message);
+        title = receivedTitle;
+        return HangoutsAPI.sendHangoutsMessage(Object.assign({}, apiData, { title }));
+    });
+}
+
+if (require.main === module) {
+    start(shouldLog);
+}
+else {
+    module.exports = start;
 }
 

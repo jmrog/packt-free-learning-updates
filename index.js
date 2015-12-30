@@ -2,13 +2,14 @@
 
 'use strict';
 
+// third-party
 const path = require('path');
 const argv = require('minimist')(process.argv.slice(2));
-const HangoutsBot = require('hangouts-bot');
 
+// first-party
 const HangoutsAPI = require(path.join(__dirname, 'lib', 'HangoutsAPI'));
-const decorateHangoutsBot = require(path.join(__dirname, 'lib', 'decorateHangoutsBot'));
 const credentials = require(path.join(__dirname, 'credentials.js'));
+
 const isDev = /^dev/.test(process.env.NODE_ENV);
 const shouldLog = typeof argv.log === 'boolean' ? argv.log : isDev;
 
@@ -19,29 +20,44 @@ const shouldLog = typeof argv.log === 'boolean' ? argv.log : isDev;
  * @param {boolean} shouldLog - forces logging
  */
 function start(shouldLog) {
-    // No destructuring assignment in Node 4. :(
-    const sourceEmail = credentials.sourceEmail;
-    const sourcePassword = credentials.sourcePassword;
-    const destination = credentials.destinationEmail;
-    const hangoutsBot = decorateHangoutsBot(new HangoutsBot(sourceEmail, sourcePassword));
-    let title = null;
-    const apiData = {
-        hangoutsBot,
-        destination,
-        shouldLog
-    };
+    HangoutsAPI.setupAPI(credentials)
+        .then((apiData) => {
+            // we need to make sure both that the hangoutsBot has come online and that
+            // the request has resolved with a title
+            const promisesToFulfill = [
+                new Promise((resolve) => hangoutsBot.on('online', resolve)),
+                HangoutsAPI.makeRequest(apiData, shouldLog)
+            ];
 
-    hangoutsBot.on('online', () => HangoutsAPI.sendHangoutsMessage(
-        Object.assign({}, apiData, { title })
-    ));
+            Promise.all(promisesToFulfill)
+                .then(HangoutsAPI.sendHangoutsMessage)
+                .catch(HangoutsAPI.sendErrorNotification)
+                .then(hangoutsBot.disconnect)
+                .then(process.exit);
+        });
 
+    hangoutsBot.on('online', () => {
+        HangoutsAPI.sendHangoutsMessage(Object.assign({}, apiData, { title }))
+            .catch(HangoutsBotAPI.sendErrorNotification)
+            .then(hangoutsBot.disconnect.bind(hangoutsBot, process.exit));
+    });
+
+    HangoutsAPI.makeRequest(shouldLog)
+        .then((receivedTitle) => {
+            title = receivedTitle; // for closure
+
+        .then(HangoutsAPI.sendHangoutMessage(Object.assign({}, apiData
     HangoutsAPI.makeRequest(shouldLog, (err, receivedTitle) => {
         if (err) {
-            return HangoutsAPI.sendErrorNotification(Object.assign({}, apiData, { message: err }));
+            HangoutsAPI.sendErrorNotification(Object.assign({}, apiData, { message: err }));
+            hangoutsBot.closeConnection(function() {
+                process.exit(1);
+            });
         }
 
         title = receivedTitle;
-        return HangoutsAPI.sendHangoutsMessage(Object.assign({}, apiData, { title }));
+        HangoutsAPI.sendHangoutsMessage(Object.assign({}, apiData, { title }))
+            .then(() => hangoutsBot.closeConnection(() => process.exit(0)));
     });
 }
 

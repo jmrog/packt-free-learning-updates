@@ -11,6 +11,7 @@ const credentials = require(path.join(__dirname, 'credentials.js'));
 
 const isDev = /^dev/.test(process.env.NODE_ENV);
 const shouldLog = typeof argv.log === 'boolean' ? argv.log : isDev;
+const ERROR_PREAMBLE = require(path.join(__dirname, 'config.js')).ERROR_PREAMBLE;
 
 /**
  * Starts the whole process. Expects that destination and source information
@@ -22,9 +23,15 @@ function start(shouldLog) {
     HangoutsAPI.setupAPI(Object.assign({}, credentials, { shouldLog }))
         .then(HangoutsAPI.makeRequest)
         .then(HangoutsAPI.sendHangoutsMessage)
+        .then(end)
         .catch(HangoutsAPI.sendErrorNotification)
-        .then(HangoutsAPI.end)
-        .then(process.exit);
+        // handle the possibly that even sending the error notification fails:
+        .then(end, () => { console.error(ERROR_PREAMBLE + 'Unrecoverable error.'); end(1) });
+}
+
+function end(exitCode) {
+    HangoutsAPI.end();
+    process.exit(exitCode);
 }
 
 if (require.main === module) {
